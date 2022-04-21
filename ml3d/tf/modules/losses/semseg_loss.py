@@ -29,7 +29,6 @@ class SemSegLoss(object):
                 logits=logits, labels=one_hot_labels)
             weighted_losses = unweighted_losses * weights
             output_loss = tf.reduce_mean(weighted_losses)
-
             return output_loss
 
     def filter_valid_label(self, scores, labels):

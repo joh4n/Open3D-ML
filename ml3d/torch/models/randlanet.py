@@ -61,6 +61,7 @@ class RandLANet(BaseModel):
 
         self.fc0 = nn.Linear(cfg.in_channels, cfg.dim_features)
         self.bn0 = nn.BatchNorm2d(cfg.dim_features, eps=1e-6, momentum=0.01)
+        # self.bn0 = nn.BatchNorm2d(cfg.dim_features, eps=1e-6, affine=False)
 
         # Encoder
         self.encoder = []
@@ -136,7 +137,7 @@ class RandLANet(BaseModel):
                 search_tree.query(points, return_distance=False))
             proj_inds = proj_inds.astype(np.int32)
             data['proj_inds'] = proj_inds
-
+        data['num_points'] = search_tree.data.shape[0]
         return data
 
     def transform(self, data, attr, min_possibility_idx=None):
@@ -152,6 +153,8 @@ class RandLANet(BaseModel):
 
         cfg = self.cfg
         inputs = dict()
+        # inputs = dict(data)
+        inputs['num_points'] = data['num_points']
 
         pc = data['point'].copy()
         label = data['label'].copy()
@@ -221,6 +224,10 @@ class RandLANet(BaseModel):
         inputs['features'] = feat
         inputs['point_inds'] = selected_idxs
         inputs['labels'] = label.astype(np.int64)
+
+        # import json
+        # inputs['o_lables'] = json.dumps(data['label'].tolist())
+        # inputs['o_point_inds'] = json.dumps(data['proj_inds'].tolist())
 
         return inputs
 
@@ -361,7 +368,6 @@ class RandLANet(BaseModel):
                                             cfg.ignored_label_inds, device)
 
         loss = Loss.weighted_CrossEntropyLoss(scores, labels)
-
         return loss, labels, scores
 
     def inference_begin(self, data):
@@ -469,8 +475,8 @@ class SharedMLP(nn.Module):
                                   stride=stride,
                                   padding=(kernel_size - 1) // 2)
 
-        self.batch_norm = nn.BatchNorm2d(out_channels, eps=1e-6,
-                                         momentum=0.01) if bn else None
+        self.batch_norm = nn.BatchNorm2d(out_channels, eps=1e-6, momentum=0.01) if bn else None
+        # self.batch_norm = nn.BatchNorm2d(out_channels, eps=1e-6, affine=False) if bn else None
         self.activation_fn = activation_fn
 
     def forward(self, input):

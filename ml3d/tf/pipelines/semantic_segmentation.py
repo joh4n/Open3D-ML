@@ -292,9 +292,11 @@ class SemanticSegmentation(BasePipeline):
             self.valid_losses = []
             step = 0
 
-            for inputs in tqdm(valid_loader, total=len_val, desc='validation'):
+            # for inputs in tqdm(valid_loader, total=len_val, desc='validation'):
+            for inputs in tqdm(train_loader, total=len_val, desc='validation'):
                 with tf.GradientTape() as tape:
-                    results = model(inputs, training=False)
+                    # results = model(inputs, training=False)
+                    results = model(inputs, training=True)
                     loss, gt_labels, predict_scores = model.get_loss(
                         Loss, results, inputs)
 

@@ -124,7 +124,7 @@ class SemanticSegmentation(BasePipeline):
                          train_sum_dir=train_sum_dir,
                          **kwargs)
 
-    def run_inference(self, data):
+    def run_inference(self, data, eval_mode=True):
         """Run inference on given data.
 
         Args:
@@ -139,7 +139,10 @@ class SemanticSegmentation(BasePipeline):
 
         model.to(device)
         model.device = device
-        model.eval()
+        if eval_mode:
+            model.eval()
+        else:
+            model.train()
 
         batcher = self.get_batcher(device)
         infer_dataset = InferenceDummySplit(data)
@@ -162,10 +165,20 @@ class SemanticSegmentation(BasePipeline):
         self.ori_test_probs = []
         self.ori_test_labels = []
 
+        ii = 0
         with torch.no_grad():
             for unused_step, inputs in enumerate(infer_loader):
+                if hasattr(inputs['data'], 'to'):
+                    inputs['data'].to(device)
                 results = model(inputs['data'])
+
+                # (torch.argmax(predict_scores, dim=1)== gt_labels).float().mean()
+                # np.bincount(torch.argmax(predict_scores, dim=1))
                 self.update_tests(infer_sampler, inputs, results)
+
+                ii += 1
+        np.unique(inputs['data']['labels'])
+        np.unique(torch.argmax(results[0], dim=1))
 
         inference_result = {
             'predict_labels': self.ori_test_labels.pop(),
@@ -175,10 +188,9 @@ class SemanticSegmentation(BasePipeline):
         metric = SemSegMetric()
 
         valid_scores, valid_labels = filter_valid_label(
-            torch.tensor(inference_result['predict_scores']),
-            torch.tensor(data['label']), model.cfg.num_classes,
-            model.cfg.ignored_label_inds, device)
-
+                torch.tensor(inference_result['predict_scores']),
+                torch.tensor(data['label']), model.cfg.num_classes,
+                model.cfg.ignored_label_inds, device)
         metric.update(valid_scores, valid_labels)
         log.info(f"Accuracy : {metric.acc()}")
         log.info(f"IoU : {metric.iou()}")
@@ -194,6 +206,7 @@ class SemanticSegmentation(BasePipeline):
         model.device = device
         model.to(device)
         model.eval()
+        # model.train()
         self.metric_test = SemSegMetric()
 
         timestamp = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
@@ -275,6 +288,13 @@ class SemanticSegmentation(BasePipeline):
         if self.curr_cloud_id != sampler.cloud_id:
             self.curr_cloud_id = sampler.cloud_id
             num_points = sampler.possibilities[sampler.cloud_id].shape[0]
+            # inputs['data']['coords'][0].shape
+            # inputs['data'].keys()
+            # inputs['data']['point_inds'].max()+1
+            # inputs['data']['interp_idx'][2].shape
+
+            # num_points
+            # import ipdb; ipdb.set_trace()
             self.pbar = tqdm(total=num_points,
                              desc="{} {}/{}".format(split, self.curr_cloud_id,
                                                     len(sampler.dataset)))
@@ -312,6 +332,7 @@ class SemanticSegmentation(BasePipeline):
                 self.test_probs[self.curr_cloud_id][proj_inds])
             self.ori_test_labels.append(
                 self.test_labels[self.curr_cloud_id][proj_inds])
+            # import ipdb; ipdb.set_trace()
             self.complete_infer = True
 
     def run_train(self):
@@ -413,9 +434,12 @@ class SemanticSegmentation(BasePipeline):
                     inputs['data'].to(device)
                 self.optimizer.zero_grad()
                 results = model(inputs['data'])
-                loss, gt_labels, predict_scores = model.get_loss(
-                    Loss, results, inputs, device)
+                loss, gt_labels, predict_scores = model.get_loss(Loss, results, inputs, device)
 
+                print('acc loss: ', torch.mean((np.argmax(predict_scores.detach(), 1) == gt_labels).to(torch.float)))
+                print('classes: ', np.unique(gt_labels))
+                count =  np.bincount(gt_labels)
+                print('cls dist',count, count/np.sum(count))
                 if predict_scores.size()[-1] == 0:
                     continue
 
@@ -426,6 +450,8 @@ class SemanticSegmentation(BasePipeline):
                 self.optimizer.step()
 
                 self.metric_train.update(predict_scores, gt_labels)
+                # (torch.argmax(predict_scores, dim=1)== gt_labels).float().mean()
+                # np.bincount(torch.argmax(predict_scores, dim=1))
 
                 self.losses.append(loss.cpu().item())
                 # Save only for the first pcd in batch
@@ -438,11 +464,13 @@ class SemanticSegmentation(BasePipeline):
             # --------------------- validation
             model.eval()
             self.valid_losses = []
+
             model.trans_point_sampler = valid_sampler.get_point_sampler()
 
             with torch.no_grad():
                 for step, inputs in enumerate(
                         tqdm(valid_loader, desc='validation')):
+                        # tqdm(train_loader, desc='validation')):
                     if hasattr(inputs['data'], 'to'):
                         inputs['data'].to(device)
 
@@ -454,6 +482,8 @@ class SemanticSegmentation(BasePipeline):
                         continue
 
                     self.metric_val.update(predict_scores, gt_labels)
+                    # import ipdb; ipdb.set_trace()
+                    # (torch.argmax(predict_scores, dim=1)== gt_labels).float().mean()
 
                     self.valid_losses.append(loss.cpu().item())
                     # Save only for the first batch
