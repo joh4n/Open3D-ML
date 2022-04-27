@@ -438,7 +438,7 @@ class SemanticSegmentation(BasePipeline):
 
                 # print('acc loss: ', torch.mean((np.argmax(predict_scores.detach(), 1) == gt_labels).to(torch.float)))
                 # print('classes: ', np.unique(gt_labels))
-                count =  np.bincount(gt_labels)
+                # count =  np.bincount(gt_labels)
                 # print('cls dist',count, count/np.sum(count))
                 if predict_scores.size()[-1] == 0:
                     continue
