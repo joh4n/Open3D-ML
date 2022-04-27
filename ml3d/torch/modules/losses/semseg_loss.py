@@ -11,8 +11,7 @@ def filter_valid_label(scores, labels, num_classes, ignored_label_inds, device):
 
     ignored_bool = torch.zeros_like(valid_labels, dtype=torch.bool)
     for ign_label in ignored_label_inds:
-        ignored_bool = torch.logical_or(ignored_bool,
-                                        torch.eq(valid_labels, ign_label))
+        ignored_bool = torch.logical_or(ignored_bool, torch.eq(valid_labels, ign_label))
 
     valid_idx = torch.where(torch.logical_not(ignored_bool))[0].to(device)
 
@@ -31,9 +30,8 @@ def filter_valid_label(scores, labels, num_classes, ignored_label_inds, device):
                 reducing_list[:ign_label], inserted_value,
                 reducing_list[ign_label:]
             ], 0)
-    valid_labels = torch.gather(reducing_list.to(device), 0,
-                                valid_labels.long())
 
+    valid_labels = torch.gather(reducing_list.to(device), 0,valid_labels.long())
     return valid_scores, valid_labels
 
 

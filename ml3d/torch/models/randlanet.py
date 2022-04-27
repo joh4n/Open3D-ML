@@ -115,16 +115,15 @@ class RandLANet(BaseModel):
             feat = np.array(data['feat'], dtype=np.float32)
 
         split = attr['split']
-        data = dict()
 
         if feat is None:
-            sub_points, sub_labels = DataProcessing.grid_subsampling(
-                points, labels=labels, grid_size=cfg.grid_size)
+            sub_points, sub_labels = DataProcessing.grid_subsampling(points, labels=labels, grid_size=cfg.grid_size)
             sub_feat = None
         else:
             sub_points, sub_feat, sub_labels = DataProcessing.grid_subsampling(
                 points, features=feat, labels=labels, grid_size=cfg.grid_size)
 
+        data = dict()
         search_tree = KDTree(sub_points)
 
         data['point'] = sub_points
@@ -136,6 +135,7 @@ class RandLANet(BaseModel):
             proj_inds = np.squeeze(
                 search_tree.query(points, return_distance=False))
             proj_inds = proj_inds.astype(np.int32)
+                # import ipdb; ipdb.set_trace()
             data['proj_inds'] = proj_inds
         data['num_points'] = search_tree.data.shape[0]
         return data
@@ -363,10 +363,7 @@ class RandLANet(BaseModel):
         """
         cfg = self.cfg
         labels = inputs['data']['labels']
-
-        scores, labels = filter_valid_label(results, labels, cfg.num_classes,
-                                            cfg.ignored_label_inds, device)
-
+        scores, labels = filter_valid_label(results, labels, cfg.num_classes, cfg.ignored_label_inds, device)
         loss = Loss.weighted_CrossEntropyLoss(scores, labels)
         return loss, labels, scores
 
@@ -498,7 +495,6 @@ class SharedMLP(nn.Module):
 
 
 class LocalSpatialEncoding(nn.Module):
-
     def __init__(self, dim_in, dim_out, num_neighbors, encode_pos=False):
         super(LocalSpatialEncoding, self).__init__()
 
@@ -521,7 +517,6 @@ class LocalSpatialEncoding(nn.Module):
         """
         B, N, K = neighbor_indices.size()
         dim = coords.shape[2]
-
         extended_indices = neighbor_indices.unsqueeze(1).expand(B, dim, N, K)
         extended_coords = coords.transpose(-2, -1).unsqueeze(-1).expand(
             B, dim, N, K)
