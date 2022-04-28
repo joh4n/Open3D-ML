@@ -177,8 +177,8 @@ class SemanticSegmentation(BasePipeline):
                 self.update_tests(infer_sampler, inputs, results)
 
                 ii += 1
-        np.unique(inputs['data']['labels'])
-        np.unique(torch.argmax(results[0], dim=1))
+        # np.unique(inputs['data']['labels'])
+        # np.unique(torch.argmax(results[0], dim=1))
 
         inference_result = {
             'predict_labels': self.ori_test_labels.pop(),
